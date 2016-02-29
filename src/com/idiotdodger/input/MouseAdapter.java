@@ -41,11 +41,21 @@ public class MouseAdapter extends MouseInputAdapter {
     }
     
     public boolean isMouseClicked() {
-        return isClicked;
+        if (isClicked) {
+            isClicked = false;
+            return true;
+        } else {
+            return false;
+        }
     }
     
     public boolean isMouseReleased() {
-        return isReleased;
+        if (isReleased) {
+            isReleased = false;
+            return true;
+        } else {
+            return false;
+        }
     }
     
     public boolean isMouseDragging() {
@@ -58,12 +68,10 @@ public class MouseAdapter extends MouseInputAdapter {
     
     @Override
     public void mouseClicked(MouseEvent event) {
-        // log("Mouse clicked", event);
-        
         updateCoordinates(event);
         
         
-        if (isClicked != true)
+        if (!isClicked)
             isClicked = true;
         
         if (isDragging)
@@ -78,13 +86,10 @@ public class MouseAdapter extends MouseInputAdapter {
     
     @Override
     public void mouseDragged(MouseEvent event) {
-//        log("Mouse dragged", e);
-        
         updateCoordinates(event);
         
-        
 
-        if (isDragging != true)
+        if (!isDragging)
             isDragging = true;
         
         if (isClicked)
@@ -100,11 +105,9 @@ public class MouseAdapter extends MouseInputAdapter {
     
     @Override
     public void mouseMoved(MouseEvent event) {
-//        log("Mouse moved", e);
-        
         updateCoordinates(event);
         
-        if (isMoving != true)
+        if (!isMoving)
             isMoving = true;
         
         if (isClicked)
@@ -123,13 +126,9 @@ public class MouseAdapter extends MouseInputAdapter {
      */
     @Override
     public void mouseReleased(MouseEvent event) {
-//        log("Mouse released", e);
-        
         updateCoordinates(event);
         
-
-        
-        if (isReleased != true)
+        if (!isReleased)
             isReleased = true;
         
         if (isClicked)
@@ -141,12 +140,5 @@ public class MouseAdapter extends MouseInputAdapter {
         if (isDragging)
             isDragging = false;
         
-    }
-    
-    void log(String eventDescription, MouseEvent event) {
-        System.out.println(eventDescription 
-                        + " (" + event.getX() + "," + event.getY() + ")"
-                        + " detected on "
-                        + event.getComponent().getClass().getName());
     }
 }

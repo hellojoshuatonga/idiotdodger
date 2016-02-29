@@ -5,28 +5,40 @@
  */
 package com.idiotdodger.utils;
 
-import java.awt.Font;
-import java.awt.FontMetrics;
+import com.idiotdodger.GameSettings;
+
+import java.awt.*;
 import javax.swing.JFrame;
 
 /**
  *
- * @author root
+ * This class will manage fonts for drawing
+ *
  */
 public class FontManager {
     Font big, medium, small;
     FontMetrics fmBig, fmMedium, fmSmall;
     
     public FontManager(JFrame frame) {
-        big = new Font("Helvetica", Font.BOLD, 42);
-        medium = new Font("Helvetica", Font.BOLD, 26);
-        small = new Font("Helvetica", Font.BOLD, 16);
-        
+        big = new Font(GameSettings.FONT_FAMILY, Font.BOLD, 56);
+        medium = new Font(GameSettings.FONT_FAMILY, Font.BOLD, 36);
+        small = new Font(GameSettings.FONT_FAMILY, Font.BOLD, 16);
+
+
         fmBig = frame.getFontMetrics(big);
         fmMedium = frame.getFontMetrics(medium);
         fmSmall = frame.getFontMetrics(small);
     }
-    
+
+    /**************************************************************************
+     **************************** Public methods ******************************
+     **************************************************************************/
+
+    /**
+     * Get the big font
+     *
+     * @return big Big font
+     * */
     public Font getBigFont() {
         return big;
     }

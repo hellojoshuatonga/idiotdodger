@@ -14,7 +14,7 @@ import com.idiotdodger.GameSettings;
  */
 public class Spike extends Sprite {
     private int speed;
-    
+
     public Spike(int x, int y) {
         super(x, y);
         
@@ -22,7 +22,8 @@ public class Spike extends Sprite {
         
         initialize();
     }
-    
+
+
     public Spike(int x, int y, int speed) {
         super(x, y);
         
@@ -30,7 +31,8 @@ public class Spike extends Sprite {
         
         initialize();
     }
-    
+
+
     public Spike(int x, int y, boolean visibility) {
         super(x, y, visibility);
         
@@ -38,7 +40,8 @@ public class Spike extends Sprite {
         
         initialize();
     }
-    
+
+
     public Spike(int x, int y, boolean visibility, int speed) {
         super(x, y, visibility);
         
@@ -46,18 +49,28 @@ public class Spike extends Sprite {
         
         initialize();
     }
-    
+
+
+
+    /**************************************************************************
+     *************************** Private methods ******************************
+     **************************************************************************/
+
+
     /**
      * Setup all things needed here
      */
     private void initialize() {
-        loadImage(GameSettings.SpikeImage);
+        loadImage(GameSettings.SPIKE_IMAGE);
     }
-    
+
+
+
     /**************************************************************************
      **************************** Public methods ******************************
      **************************************************************************/
-    
+
+
     /**
      * Spikes are going down. As always.
      * 

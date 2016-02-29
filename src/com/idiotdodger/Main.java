@@ -11,16 +11,16 @@ import com.idiotdodger.entities.Player;
 import com.idiotdodger.entities.Spike;
 import com.idiotdodger.input.MouseAdapter;
 import com.idiotdodger.utils.FontManager;
+import com.idiotdodger.utils.SoundManager;
 
-import java.awt.*; 
-import java.awt.image.BufferedImage; 
-import java.util.ArrayList;
-import java.util.Random;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.*;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JFrame; 
-
-import static javax.swing.JFrame.EXIT_ON_CLOSE;
 
 /** 
  * Main class for the game 
@@ -29,21 +29,19 @@ public class Main extends JFrame
 {
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
     
-    private boolean isRunning, isGameOver;
-    private int fps, windowWidth, windowHeight;
+    private boolean isRunning, isGameOver, isInMenu;
+    private int fps, windowWidth, windowHeight, lastSpawnPosition;
+    private long lastSpawnTime;
     private Integer score, lastScore;
     
     private ArrayList<Spike> spikes;
-    private final int[][] spikesPositions = {
-        {210, -520}, {350, -120}, {130, -210},
-        {430, -30}, {30, -45}, {280, -60}
-    };
-        
+
         
     private BufferedImage backBuffer; 
     private Insets insets;
     private Random random;
-    
+    private Image backgroundImage, titleImage;
+
     private MouseAdapter mouseAdapter;
     private Player player;
     private FontManager fontManager;
@@ -56,65 +54,80 @@ public class Main extends JFrame
      */
     public static void main(String[] args) 
     {
+        // Setup logger
+        // Create handler for logger
+        Handler consoleHandler = new ConsoleHandler();
+        consoleHandler.setLevel(GameSettings.LOGGER_LEVEL);
+
+        // Set level and use the created handler
         LOGGER.setLevel(GameSettings.LOGGER_LEVEL);
-        LOGGER.info("Initializing game");
-        
-        
-        
+        LOGGER.addHandler(consoleHandler);
+        LOGGER.setUseParentHandlers(false);
+
+
         // Start the game
-        Main game = new Main(); 
+        LOGGER.info("Starting game");
+        Main game = new Main();
         game.run(); 
         
         
         System.exit(0);
-    } 
-        
+    }
+
+
+    /**********************************************************************
+     *************************** Public methods ***************************
+     **********************************************************************/
+
+    /**
+     * This method starts the game and runs it in a loop
+     */
+    public void run()
+    {
+        initializeSettings();
+
+        while(isRunning)
+        {
+            long time = System.currentTimeMillis();
+
+            if (isGameOver)
+                initializeGame();
+
+
+            update();
+            draw();
+
+            //  delay for each frame  -   time it took for one frame
+            time = (1000 / fps) - (System.currentTimeMillis() - time);
+
+            if (time > 0)
+            {
+                try
+                {
+                    Thread.sleep(time);
+                }
+                catch(Exception ignored)
+                {
+                }
+            }
+        }
+
+        setVisible(false);
+    }
+
+
+
     /**********************************************************************
      ************************** Private methods ***************************
      **********************************************************************/
         
-    /** 
-     * This method starts the game and runs it in a loop 
-     */ 
-    public void run() 
-    { 
-        
-        initializeSettings(); 
-                
-        while(isRunning) 
-            { 
-                long time = System.currentTimeMillis(); 
-                
-                if (isGameOver) 
-                    initializeGame();
-                
-                
-                update(); 
-                draw(); 
-                        
-                //  delay for each frame  -   time it took for one frame 
-                time = (1000 / fps) - (System.currentTimeMillis() - time); 
-                        
-                if (time > 0)
-                { 
-                    try 
-                    { 
-                        Thread.sleep(time); 
-                    } 
-                        catch(Exception e)
-                        {
-                        } 
-                    } 
-            } 
-                
-        setVisible(false); 
-    } 
-        
+
     /** 
      * This method will set up everything need for the game to run 
      */ 
     private void initializeSettings() 
-    { 
+    {
+        LOGGER.info("Setting up game setttings");
         
         String title;
         
@@ -123,33 +136,40 @@ public class Main extends JFrame
         windowWidth = GameSettings.WINDOW_WIDTH;
         windowHeight = GameSettings.WINDOW_HEIGHT;
         title = GameSettings.TITLE;
-        
- 
+
+        // Set the appropriate settings for the frame
         setTitle(title);
         setSize(windowWidth, windowHeight);
-        setResizable(false); 
-        setDefaultCloseOperation(EXIT_ON_CLOSE); 
-        setVisible(true); 
-        
+        setResizable(false);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setVisible(true);
+
+
+        // Update the windowWidth and windowHeight with insets of the frame
         insets = getInsets();
+
         windowWidth = insets.left + windowWidth + insets.right;
         windowHeight = insets.top + windowHeight + insets.bottom;
+
         setSize(windowWidth, windowHeight);
-                
-        backBuffer = new BufferedImage(windowWidth, windowHeight,
-                BufferedImage.TYPE_INT_RGB);
-        
-        
-        // Update the window width and height with insets
+
         GameSettings.setWindowWidth(windowWidth);
         GameSettings.setWindowHeight(windowHeight);
-        
+
+
+        backBuffer = new BufferedImage(windowWidth, windowHeight,
+                BufferedImage.TYPE_INT_RGB);
+
         // Score counter
         score = 0;
         lastScore = 0;
         
         // Start the big loop
         isRunning = true;
+
+        isGameOver = false;
+
+        isInMenu = true;
         
         // Add mouse listener
         mouseAdapter = new MouseAdapter();
@@ -157,15 +177,30 @@ public class Main extends JFrame
         addMouseListener(mouseAdapter);
         addMouseMotionListener(mouseAdapter);
         
-        // Set fonts
+        // Fonts to use in drawString, etc
         fontManager = new FontManager(this);
-        
+
+        // Initialize sound manager for sound effects
+        SoundManager.init();
+        SoundManager.volume = SoundManager.Volume.HIGH;
+
         // Random speed in spikes
         random = new Random();
+
+        // Initialize images to use
+        backgroundImage = new ImageIcon(getClass().getClassLoader().getResource(
+                GameSettings.BACKGROUND_IMAGE
+        )).getImage();
+        titleImage = new ImageIcon(getClass().getClassLoader().getResource(
+                GameSettings.TITLE_IMAGE
+        )).getImage();
         
         initializeGame();
     } 
-    
+
+    /**
+     * Reset the settings to restart the game
+     * */
     private void initializeGame() {
         // Reset the score
         score = 0;
@@ -174,12 +209,18 @@ public class Main extends JFrame
         spikes = new ArrayList<>();
         
         // Player sprite
-        addPlayer(mouseAdapter.getX(), mouseAdapter.getY());
-        
-        // Spikes sprite
-        addSpikes(spikesPositions);
+        if (player == null) {
+            LOGGER.fine("Adding player");
+            addPlayer(mouseAdapter.getX(), mouseAdapter.getY());
+        }
+
+        if (!SoundManager.MENU.isRunning())
+            SoundManager.MENU.playForever();
+
+        spawnSpike();
     }
-    
+
+
     /**
      * Initialize the player sprite
      * 
@@ -189,42 +230,103 @@ public class Main extends JFrame
     private void addPlayer(int x, int y) {
         player = new Player(x, y);
     }
-    
+
+
     /**
-     * Initialize our sprites of spike
-     * 
-     * @param positions positions to spawn spikes
-     * 
-     */
-    private void addSpikes(int[][] positions) {
-        for (int[] position : positions) {
-            Spike spike;
-            int speed;
-            
-            speed = random.nextInt(5);
-            spike = new Spike(position[0], position[1], true);
-            
-            if (speed == 0)
-                spike.setSpeed(5);
-            else if (speed == 1)
-                spike.setSpeed(6);
-            else if (speed == 2)
-                spike.setSpeed(7);
-            else if (speed == 3)
-                spike.setSpeed(8);
-            else if (speed == 4)
-                spike.setSpeed(9);
-            else if (speed == 5)
-                spike.setSpeed(10);
-            
-           
-            spikes.add(spike);
-            LOGGER.log(Level.FINER, "Spike added: X:{0} Y:{1}", 
-                new Object[]{position[0], position[1]});
+     * Spawn spike at random position at a constant time
+     *
+     * */
+    private void spawnSpike() {
+        if (isGameOver)
+            return;
+
+        int randomX, randomSpeed, diffInPosition;
+        Spike spike;
+
+        randomSpeed = random.nextInt(10) + 5;
+        randomX = random.nextInt(windowWidth - 100);
+        diffInPosition = randomX - lastSpawnPosition;
+
+        if (diffInPosition <= 100 && diffInPosition >= -100) {
+            if (randomX < 0)
+                randomX = 0;
+            else if (randomX > 0) {
+                randomX += 50;
+            }
         }
-       
-        LOGGER.log(Level.FINER, "Spikes count: {0}", spikes.size());
+
+
+        spike = new Spike(randomX, -100, true);
+        spike.setSpeed(randomSpeed);
+
+        spikes.add(spike);
+
+        lastSpawnPosition = randomX;
+        lastSpawnTime = System.currentTimeMillis();
     }
+
+
+
+    /**
+     * Check collisions between all the objects in the frame
+     * */
+    private void checkCollisions() {
+        LOGGER.finer("Checking collisions");
+
+        Rectangle playerBounds;
+
+        playerBounds = new Rectangle(
+                player.getX() - (player.getWidth() / 2),
+                player.getY() - ((player.getHeight() / 2) + 10),
+                player.getWidth(),
+                player.getHeight()
+        );
+
+        // Check collisions
+        for (Spike spike: spikes) {
+            Rectangle spikeBounds;
+
+            spikeBounds = spike.getBounds();
+
+            if (playerBounds.intersects(spikeBounds)) {
+                isGameOver = true;
+
+                if (!SoundManager.DEAD.isRunning())
+                    SoundManager.DEAD.play();
+            }
+        }
+
+        // Give users time to react
+        if (isGameOver) {
+            try {
+                Thread.sleep(800);
+            } catch (Exception ignored)
+            {
+            }
+        }
+    }
+
+
+
+    /**************************************************************************
+     ****************************** Update methods ******************************
+     **************************************************************************/
+
+
+    /**
+     * This method will check for input, move things
+     * around and check for win conditions, etc
+     */
+    private void update()
+    {
+        LOGGER.fine("Updating");
+
+        updatePlayer(mouseAdapter.getX(), mouseAdapter.getY());
+        updateSpikes();
+
+        checkCollisions();
+    }
+
     
     /**
      * Update coordinates of our player
@@ -233,55 +335,99 @@ public class Main extends JFrame
      * @param y Y coordinate
      */
     private void updatePlayer(int x, int y) {
+        LOGGER.finer("Updating player");
+
         if (mouseAdapter.isMouseDragging()) {
-            LOGGER.log(Level.FINER, "Mouse is dragging: X:{0} Y:{1}", 
+            LOGGER.log(Level.FINE, "Mouse is dragging: X:{0} Y:{1}",
                     new Object[]{x, y});
-            
-            player.setVisible(true);
+
+            if (!player.isVisible())
+                player.setVisible(true);
+
             player.move(x, y);
-            
+
+            // Stop the menu sound
+            if (SoundManager.MENU.isRunning())
+                SoundManager.MENU.stop();
+
+            // Play background music
+            if (!SoundManager.ONGAME.isRunning())
+                SoundManager.ONGAME.playForever();
+
+            // Set last score to show in game over screen
+            if (!score.equals(lastScore))
+                lastScore = score;
+
+            if (isInMenu)
+                isInMenu = false;
+
             if (isGameOver)
                 isGameOver = false;
         } else if (mouseAdapter.isMouseMoving()) {
-            LOGGER.log(Level.FINER, "Mouse is moving: X:{0} Y:{1}", 
+            LOGGER.log(Level.FINE, "Mouse is moving: X:{0} Y:{1}",
                     new Object[]{x, y});
-            
-            player.setVisible(false);
-            
-            if (isGameOver != true)
+
+            // Change the screen to menu screen and play sound
+            if (!SoundManager.MENU.isRunning())
+                SoundManager.MENU.playForever();
+
+            if (player.isVisible())
+                player.setVisible(false);
+
+            if (!isGameOver)
                 isGameOver = true;
         } else if (mouseAdapter.isMouseClicked()) {
-            LOGGER.log(Level.FINER, "Mouse is clicked: X:{0} Y:{1}", 
+            LOGGER.log(Level.FINE, "Mouse is clicked: X:{0} Y:{1}",
                     new Object[]{x, y});
-            
-            player.setVisible(false);
-            
-            if (isGameOver != true)
+
+            SoundManager.CLICK.play();
+
+            if (player.isVisible())
+                player.setVisible(false);
+
+
+            if (!isInMenu)
+                isInMenu = true;
+
+            if (!isGameOver)
                 isGameOver = true;
         } else if (mouseAdapter.isMouseReleased()) {
-            LOGGER.log(Level.FINER, "Mouse is released: X:{0} Y:{1}", 
+            LOGGER.log(Level.FINE, "Mouse is released: X:{0} Y:{1}",
                     new Object[]{x, y});
-            
-            player.setVisible(false);
-            
-            if (isGameOver != true)
+
+            if (!SoundManager.DEAD.isRunning())
+                SoundManager.DEAD.play();
+
+            SoundManager.ONGAME.stop();
+
+            if (player.isVisible())
+                player.setVisible(false);
+
+            if (!isGameOver)
                 isGameOver = true;
         }
      
     }
-    
+
+
     /**
      * Update spikes
      */
     private void updateSpikes() {
-        
-        // NOTE: Fix this
+        LOGGER.finer("Updating spikes");
+
+        // Add spike
+        if (System.currentTimeMillis() - lastSpawnTime >= 1000) {
+            LOGGER.finer("Spawning spike");
+            spawnSpike();
+        }
+
         if (spikes.isEmpty()) {
-            LOGGER.info("No more spikes!");
+            LOGGER.finer("No more spikes!");
             isGameOver = true;
         }
         
-        if (isGameOver == false) {
+        if (!isGameOver) {
             for (int i=0; i < spikes.size(); i++) {
                 Spike spike = spikes.get(i);
                 if (spike.isVisible())
@@ -290,147 +436,150 @@ public class Main extends JFrame
                     spikes.remove(spike);
                     score++;
                 }
-            } 
-        }  
-    }
-        
-    /** 
-     * This method will check for input, move things 
-     * around and check for win conditions, etc 
-     */ 
-    private void update() 
-    {        
-        updatePlayer(mouseAdapter.getX(), mouseAdapter.getY());
-        updateSpikes();
-        
-        checkCollisions();
-    }
-    
-    private void checkCollisions() {
-        Rectangle playerBounds;
-        
-        playerBounds = player.getBounds();
-        
-        for (Spike spike: spikes) {
-            Rectangle spikeBounds;
-            
-            spikeBounds = spike.getBounds();
-            
-            if (playerBounds.intersects(spikeBounds))
-                isGameOver = true;
-            
-        }
-        
-        // Give users time to react
-        if (isGameOver) {
-            try {
-                Thread.sleep(500);
-            } catch (Exception e)
-            {
             }
         }
     }
-        
-        
+
+
+
+
+
+    /**************************************************************************
+     ****************************** Draw methods ******************************
+     **************************************************************************/
+
+
     /**
-     * Draw player sprite to frame
-     * 
-     * @param graphic The Graphics instance
+     * This method will draw everything
      */
-    private void drawPlayer(Graphics graphic) {
-        int playerX, playerY;
-        
-        if (player.isVisible()) {
-            playerX = player.getX() - (player.getWidth() / 2);
-            playerY = player.getY() - (player.getHeight() / 2);
-            graphic.drawImage(player
-                    .getImage(), playerX, playerY, this);
-        }
-    }
-    
-    /**
-     * Draw spikes to frame
-     * 
-     * @param graphic Where we paint
-     */
-    private void drawSpikes(Graphics graphic) {
-        for (Spike spike: spikes)
-            if (spike.isVisible())
-                graphic.drawImage(spike.getImage(), spike.getX(), spike.getY(),
-                        this);
-    }
-    
-    /**
-     * Draw score in top left of screen
-     * 
-     * @param graphic Kung saan mag pipinta si pintado
-     */
-    private void drawScore(Graphics graphic) {
-        String scoreMsg = score.toString();
-        
-        graphic.setColor(Color.BLACK);
-        graphic.setFont(fontManager.getBigFont());
-        graphic.drawString(scoreMsg, 20, 50);
-        
-    }
-    
-    /** 
-     * Draw game over screen
-     * 
-     * @param graphic The instance of Graphics class
-     */
-    private void drawGameOver(Graphics graphic) {
-        String gameOverMsg = "Game over!";
-        String playAgainMsg = "Press and hold anywhere to play again";
-        String scoreMsg = lastScore.toString();
-        
-        graphic.setColor(Color.BLACK);
-        graphic.setFont(fontManager.getBigFont());
-        graphic.drawString(scoreMsg,
-                (windowWidth - 
-                        fontManager.getBigMetrics().stringWidth(scoreMsg)) / 2,
-                windowHeight / 2);
-        
-        graphic.setColor(Color.BLACK);
-        graphic.setFont(fontManager.getMediumFont());
-        graphic.drawString(gameOverMsg, 
-                (windowWidth - 
-                    fontManager.getMediumMetrics().stringWidth(gameOverMsg)) / 2,
-                (windowHeight / 2) + (50 * 1));
-        
-        graphic.setColor(Color.red);
-        graphic.setFont(fontManager.getSmallFont());
-        graphic.drawString(playAgainMsg,
-                (windowWidth - 
-                    fontManager.getSmallMetrics().stringWidth(playAgainMsg)) / 2,
-                (windowHeight / 2) + (50 * 2));
-    }
-        
-    /** 
-     * This method will draw everything 
-     */ 
-    private void draw() 
-    {       
+    private void draw()
+    {
+        LOGGER.fine("Drawing");
         Graphics graphic = getGraphics();
         Graphics bufferGraphic = backBuffer.getGraphics();
-        
-        bufferGraphic.setColor(Color.WHITE); 
-        bufferGraphic.fillRect(0, 0, windowWidth, windowHeight);
-        
-        if (isGameOver) {
-            LOGGER.log(Level.FINER, "Game over!");
+
+        bufferGraphic.drawImage(backgroundImage, 0, 0, this);
+
+        if (isInMenu) {
+            LOGGER.finer("Menu screen");
+            drawMenu(bufferGraphic);
+        }
+        else if (isGameOver) {
+            LOGGER.finer("Game over!");
             drawGameOver(bufferGraphic);
         } else {
             drawPlayer(bufferGraphic);
             drawSpikes(bufferGraphic);
             drawScore(bufferGraphic);
         }
+
+
+        graphic.drawImage(backBuffer, insets.left, insets.top, this);
+    }
+
+
+    /**
+     * Draw player sprite to frame
+     * 
+     * @param graphic The Graphics instance
+     */
+    private void drawPlayer(Graphics graphic) {
+        LOGGER.finer("Drawing player");
+
+        int playerX, playerY;
         
-        
-        
-        graphic.drawImage(backBuffer, insets.left, insets.top, this); 
+        if (player.isVisible()) {
+            playerX = player.getX() - (player.getWidth() / 2);
+            playerY = player.getY() - ((player.getHeight() / 2) + 15);
+            graphic.drawImage(player.getImage(), playerX, playerY, this);
+        }
     }
     
-    
+    /**
+     * Draw all the visible spikes in to frame
+     * 
+     * @param graphic Where we paint
+     */
+    private void drawSpikes(Graphics graphic) {
+        LOGGER.finer("Drawing spikes");
 
+        for (Spike spike: spikes)
+            if (spike.isVisible())
+                graphic.drawImage(spike.getImage(), spike.getX(), spike.getY(),
+                        this);
+    }
+
+
+    /**
+     * Draw score in top left of screen
+     * 
+     * @param graphic Kung saan mag pipinta si pintado
+     */
+    private void drawScore(Graphics graphic) {
+        LOGGER.finer("Drawing score");
+
+        String scoreMsg = score.toString();
+        
+        graphic.setColor(Color.WHITE);
+        graphic.setFont(fontManager.getMediumFont());
+        graphic.drawString(scoreMsg, 20, 50);
+    }
+
+
+    /** 
+     * Draw game over screen
+     * 
+     * @param graphic The instance of Graphics class
+     */
+    private void drawGameOver(Graphics graphic) {
+        LOGGER.finer("Drawing game over");
+
+        String gameOverMsg = "Game over!";
+        String playAgainMsg = "Click and hold anywhere to play again";
+        String scoreMsg = lastScore.toString();
+        
+        graphic.setColor(Color.WHITE);
+        graphic.setFont(fontManager.getBigFont());
+        graphic.drawString(scoreMsg,
+                (windowWidth - 
+                        fontManager.getBigMetrics().stringWidth(scoreMsg)) / 2,
+                windowHeight / 2 - 50);
+        
+        graphic.setColor(Color.WHITE);
+        graphic.setFont(fontManager.getMediumFont());
+        graphic.drawString(gameOverMsg, 
+                (windowWidth -
+                    fontManager.getMediumMetrics().stringWidth(gameOverMsg)) / 2,
+                windowHeight / 2 );
+        
+        graphic.setColor(new Color(201, 16, 52));
+        graphic.setFont(fontManager.getSmallFont());
+        graphic.drawString(playAgainMsg,
+                (windowWidth - 
+                    fontManager.getSmallMetrics().stringWidth(playAgainMsg)) / 2,
+                (windowHeight / 2) + 50);
+    }
+
+
+    /**
+     * Draw menu screen
+     *
+     * @param graphic Graphics instance
+     * */
+    private void drawMenu(Graphics graphic) {
+        String playAgainMsg = "Click and hold anywhere to play again";
+
+        graphic.drawImage(titleImage,
+                (windowWidth / 2) - (titleImage.getWidth(null) / 2),
+                (windowHeight / 2) - 100,
+                this);
+
+
+        graphic.setColor(new Color(201, 16, 52));
+        graphic.setFont(fontManager.getSmallFont());
+        graphic.drawString(playAgainMsg,
+                (windowWidth -
+                        fontManager.getSmallMetrics().stringWidth(playAgainMsg)) / 2,
+                (windowHeight / 2) + 50);
+    }
 }

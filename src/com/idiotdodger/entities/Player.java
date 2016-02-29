@@ -7,6 +7,7 @@ package com.idiotdodger.entities;
 
 import com.idiotdodger.GameSettings;
 
+
 /**
  *
  * @author root
@@ -29,7 +30,7 @@ public class Player extends Sprite {
      * Setup all things needed
      */
     private void initialize() {
-        loadImage(GameSettings.PlayerImageHappy);
+        loadImage(GameSettings.PLAYER_IMAGE_HAPPY);
     }
     
     
